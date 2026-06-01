@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 移动端核心适配 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>证件照制作工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            padding: 15px;
+            min-height: 100vh;
+        }
+
+        .title {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .container {
+            background: #fff;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .upload-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #photoInput {
+            display: none;
+        }
+
+        /* 加大按钮，适配手机触控 */
+        .upload-btn {
+            display: inline-block;
+            width: 100%;
+            padding: 14px;
+            background: #4299e1;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .settings {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-weight: 500;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        /* 加高输入框，方便手机点击 */
+        input {
+            width: 100%;
+            height: 44px;
+            padding: 0 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .preview-section {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            min-height: 220px;
+            align-items: center;
+            border: 2px dashed #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        #previewImg {
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .btns {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        button {
+            flex: 1;
+            height: 48px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        #createBtn {
+            background: #38a169;
+        }
+
+        #downloadBtn {
+            background: #9f7aea;
+        }
+
+        .tip {
+            margin-top: 15px;
+            color: #718096;
+            font-size: 12px;
+            line-height: 1.5;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">证件照制作工具</h1>
+    <div class="container">
+        <div class="upload-section">
+            <label for="photoInput" class="upload-btn">📸 选择照片</label>
+            <input type="file" id="photoInput" accept="image/*">
+        </div>
+
+        <div class="settings">
+            <div class="setting-item">
+                <label>宽度（像素）</label>
+                <input type="number" id="width" value="358">
+            </div>
+            <div class="setting-item">
+                <label>高度（像素）</label>
+                <input type="number" id="height" value="441">
+            </div>
+            <div class="setting-item">
+                <label>DPI（分辨率）</label>
+                <input type="number" id="dpi" value="300">
+            </div>
+        </div>
+
+        <div class="preview-section">
+            <img id="previewImg" alt="预览图">
+        </div>
+
+        <div class="btns">
+            <button id="createBtn">生成证件照</button>
+            <button id="downloadBtn">下载JPG</button>
+        </div>
+
+        <div class="tip">
+            像素尺寸固定，DPI写入文件元数据<br>
+            常用：一寸 358×441 300DPI
+        </div>
+    </div>
+
+    <script>
+        let originalImage = null;
+        let finalCanvas = null;
+        const previewImg = document.getElementById('previewImg');
+
+        // 上传图片
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                originalImage = new Image();
+                originalImage.onload = function() {
+                    previewImg.src = originalImage.src;
+                    previewImg.style.display = 'block';
+                }
+                originalImage.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+
+        // 生成证件照
+        document.getElementById('createBtn').addEventListener('click', function() {
+            if (!originalImage) {
+                alert('请先选择照片');
+                return;
+            }
+
+            const targetWidth = parseInt(document.getElementById('width').value);
+            const targetHeight = parseInt(document.getElementById('height').value);
+
+            if (!targetWidth || !targetHeight) {
+                alert('请填写宽高像素');
+                return;
+            }
+
+            finalCanvas = document.createElement('canvas');
+            finalCanvas.width = targetWidth;
+            finalCanvas.height = targetHeight;
+            const ctx = finalCanvas.getContext('2d');
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+            const scale = Math.max(targetWidth / originalImage.width, targetHeight / originalImage.height);
+            const drawWidth = originalImage.width * scale;
+            const drawHeight = originalImage.height * scale;
+            const offsetX = (targetWidth - drawWidth) / 2;
+            const offsetY = (targetHeight - drawHeight) / 2;
+
+            ctx.drawImage(originalImage, offsetX, offsetY, drawWidth, drawHeight);
+            previewImg.src = finalCanvas.toDataURL('image/jpeg', 1.0);
+        });
+
+        // 写入DPI元数据
+        function setDPI(jpegBlob, dpi) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const arrayBuffer = e.target.result;
+                    const view = new Uint8Array(arrayBuffer);
+                    let offset = 2;
+
+                    while (offset < view.length - 4) {
+                        const marker = (view[offset] << 8) | view[offset + 1];
+                        if (marker === 0xFFE0) {
+                            const length = (view[offset + 2] << 8) | view[offset + 3];
+                            const app0Start = offset + 4;
+                            if (String.fromCharCode(...view.slice(app0Start, app0Start + 4)) === 'JFIF') {
+                                view[app0Start + 7] = 1;
+                                view[app0Start + 8] = (dpi >> 8) & 0xFF;
+                                view[app0Start + 9] = dpi & 0xFF;
+                                view[app0Start + 10] = (dpi >> 8) & 0xFF;
+                                view[app0Start + 11] = dpi & 0xFF;
+                                break;
+                            }
+                        }
+                        offset += 2 + ((view[offset + 2] << 8) | view[offset + 3]);
+                    }
+                    resolve(new Blob([view], { type: 'image/jpeg' }));
+                };
+                reader.readAsArrayBuffer(jpegBlob);
+            });
+        }
+
+        // 下载带DPI的JPG
+        document.getElementById('downloadBtn').addEventListener('click', async function() {
+            if (!finalCanvas) {
+                alert('请先生成证件照');
+                return;
+            }
+            const dpi = parseInt(document.getElementById('dpi').value);
+            if (!dpi) {
+                alert('请填写DPI数值');
+                return;
+            }
+
+            const jpegBlob = await new Promise(resolve => {
+                finalCanvas.toBlob(resolve, 'image/jpeg', 1.0);
+            });
+            const dpiBlob = await setDPI(jpegBlob);
+
+            const link = document.createElement('a');
+            link.download = '证件照_' + Date.now() + '.jpg';
+            link.href = URL.createObjectURL(dpiBlob);
+            link.click();
+            URL.revokeObjectURL(link.href);
+        });
+    </script>
+</body>
+</html>
